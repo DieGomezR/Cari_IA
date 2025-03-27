@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calculadora de Horas por Concepto</title>
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #f0f4ff, #e6f7ff);
+      padding: 2rem;
+      color: #333;
+    }
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: #fff;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    input[type="time"] {
+      width: 100%;
+      padding: 0.5rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #007BFF;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    canvas {
+      margin-top: 2rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 2rem;
+    }
+    th, td {
+      padding: 0.75rem;
+      text-align: center;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Horas Laboradas por Concepto</h1>
+
+    <div class="form-group">
+      <label for="attendanceIn">Hora de entrada:</label>
+      <input type="time" id="attendanceIn" value="00:00" />
+    </div>
+
+    <div class="form-group">
+      <label for="attendanceOut">Hora de salida:</label>
+      <input type="time" id="attendanceOut" value="10:30" />
+    </div>
+
+    <button onclick="calcularHoras()">Calcular Horas</button>
+
+    <canvas id="grafico" width="400" height="400"></canvas>
+    <div id="tablaResultados"></div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    function calcularHoras() {
+      const entrada = $('#attendanceIn').val();
+      const salida = $('#attendanceOut').val();
+
+      const data = {
+        attendanceIn: entrada,
+        attendanceOut: salida,
+        concepts: [
+          { id: "HO", name: "HO", start: "08:00", end: "17:59" },
+          { id: "HED", name: "HED", start: "18:00", end: "20:59" },
+          { id: "HEN", name: "HEN", start: "21:00", end: "05:59" }
+        ]
+      };
+
+      $.ajax({
+        url: 'https://falconcloud.co/site_srv10_ph/site/api/qserv.php/13465-770721',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(response) {
+          mostrarGrafico(response);
+          mostrarTabla(response);
+        },
+        error: function() {
+          alert('Error al consultar el servicio.');
+        }
+      });
+    }
+
+    function mostrarGrafico(data) {
+      const labels = Object.keys(data);
+      const valores = Object.values(data);
+
+      const colores = [
+        '#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc949'
+      ];
+
+      const ctx = document.getElementById('grafico').getContext('2d');
+      if (window.graficoHoras) {
+        window.graficoHoras.destroy();
+      }
+
+      window.graficoHoras = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: valores,
+            backgroundColor: colores.slice(0, labels.length),
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom'
+            },
+            title: {
+              display: true,
+              text: 'Distribución de Horas por Concepto'
+            }
+          }
+        }
+      });
+    }
+
+    function mostrarTabla(data) {
+      let html = '<table><thead><tr><th>Concepto</th><th>Horas</th></tr></thead><tbody>';
+      for (const key in data) {
+        html += `<tr><td>${key}</td><td>${data[key]}</td></tr>`;
+      }
+      html += '</tbody></table>';
+      $('#tablaResultados').html(html);
+    }
+  </script>
+</body>
+</html>
