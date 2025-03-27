@@ -3,99 +3,47 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Calculadora de Horas por Concepto</title>
-  <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(to right, #f0f4ff, #e6f7ff);
-      padding: 2rem;
-      color: #333;
-    }
-    .container {
-      max-width: 700px;
-      margin: auto;
-      background: #fff;
-      padding: 2rem;
-      border-radius: 12px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1);
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 1rem;
-    }
-    .form-group {
-      margin-bottom: 1.5rem;
-    }
-    label {
-      display: block;
-      margin-bottom: 0.5rem;
-    }
-    input[type="time"] {
-      width: 100%;
-      padding: 0.5rem;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-    button {
-      background: #007BFF;
-      color: white;
-      border: none;
-      padding: 0.75rem 1.5rem;
-      border-radius: 6px;
-      cursor: pointer;
-      width: 100%;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-    canvas {
-      margin-top: 2rem;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 2rem;
-    }
-    th, td {
-      padding: 0.75rem;
-      text-align: center;
-      border-bottom: 1px solid #ddd;
-    }
-    th {
-      background-color: #f2f2f2;
-    }
-  </style>
+  <title>Horas por Concepto</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
-<body>
-  <div class="container">
-    <h1>Horas Laboradas por Concepto</h1>
+<body class="bg-gradient-to-r from-blue-100 to-blue-50 min-h-screen flex items-center justify-center p-6">
+  <div class="bg-white shadow-xl rounded-2xl p-8 w-full max-w-2xl relative">
+    <h1 class="text-2xl font-bold text-center mb-6 text-blue-700">HORAS LABORADAS POR CONCEPTO</h1>
 
-    <div class="form-group">
-      <label for="attendanceIn">Hora de entrada:</label>
-      <input type="time" id="attendanceIn" value="00:00" />
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div>
+        <label for="attendanceIn" class="block font-medium mb-1 text-gray-700">Hora de entrada:</label>
+        <input type="time" id="attendanceIn" value="00:00" class="w-full border border-gray-300 rounded-lg p-2" />
+      </div>
+
+      <div>
+        <label for="attendanceOut" class="block font-medium mb-1 text-gray-700">Hora de salida:</label>
+        <input type="time" id="attendanceOut" value="10:30" class="w-full border border-gray-300 rounded-lg p-2" />
+      </div>
     </div>
 
-    <div class="form-group">
-      <label for="attendanceOut">Hora de salida:</label>
-      <input type="time" id="attendanceOut" value="10:30" />
+    <button onclick="calcularHoras()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold w-full py-2 rounded-lg transition">Calcular Horas</button>
+
+    <div class="mt-8">
+      <canvas id="grafico" class="mx-auto"></canvas>
     </div>
 
-    <button onclick="calcularHoras()">Calcular Horas</button>
+    <div id="tablaResultados" class="mt-8"></div>
 
-    <canvas id="grafico" width="400" height="400"></canvas>
-    <div id="tablaResultados"></div>
+    <div id="loadingOverlay" class="hidden absolute inset-0 bg-white/80 flex items-center justify-center rounded-2xl">
+      <div class="text-blue-600 font-semibold text-lg animate-pulse">Calculando horas...</div>
+    </div>
   </div>
 
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <script>
-    function calcularHoras() {
-      const entrada = $('#attendanceIn').val();
-      const salida = $('#attendanceOut').val();
+    async function calcularHoras() {
+      const entrada = document.getElementById('attendanceIn').value;
+      const salida = document.getElementById('attendanceOut').value;
+      const overlay = document.getElementById('loadingOverlay');
 
-      const data = {
+      const payload = {
         attendanceIn: entrada,
         attendanceOut: salida,
         concepts: [
@@ -105,28 +53,42 @@
         ]
       };
 
-      $.ajax({
-        url: 'https://corsproxy.io/?https://falconcloud.co/site_srv10_ph/site/api/qserv.php/13465-770721',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify(data),
-        success: function(response) {
-          mostrarGrafico(response);
-          mostrarTabla(response);
-        },
-        error: function() {
-          alert('Error al consultar el servicio.');
+      const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+      const targetUrl = 'https://falconcloud.co/site_srv10_ph/site/api/qserv.php/13465-770721';
+
+      try {
+        overlay.classList.remove('hidden');
+
+        const response = await fetch(proxyUrl + targetUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error('Error al obtener los datos del servidor');
         }
-      });
+
+        const data = await response.json();
+        mostrarGrafico(data);
+        mostrarTabla(data);
+
+      } catch (error) {
+        console.error(error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Oops... algo salió mal',
+          text: 'No pudimos consultar el servicio. Intenta activar el proxy o revisa la consola.'
+        });
+      } finally {
+        overlay.classList.add('hidden');
+      }
     }
 
     function mostrarGrafico(data) {
       const labels = Object.keys(data);
       const valores = Object.values(data);
-
-      const colores = [
-        '#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc949'
-      ];
+      const colores = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc949'];
 
       const ctx = document.getElementById('grafico').getContext('2d');
       if (window.graficoHoras) {
@@ -145,25 +107,36 @@
         options: {
           responsive: true,
           plugins: {
-            legend: {
-              position: 'bottom'
-            },
-            title: {
-              display: true,
-              text: 'Distribución de Horas por Concepto'
-            }
+            legend: { position: 'bottom' },
+            title: { display: true, text: 'Distribución de Horas por Concepto' }
           }
         }
       });
     }
 
     function mostrarTabla(data) {
-      let html = '<table><thead><tr><th>Concepto</th><th>Horas</th></tr></thead><tbody>';
+      let html = `
+        <table class="w-full border border-gray-200 rounded-lg overflow-hidden">
+          <thead class="bg-blue-100">
+            <tr>
+              <th class="py-2 px-4 text-left">Concepto</th>
+              <th class="py-2 px-4 text-left">Horas</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
       for (const key in data) {
-        html += `<tr><td>${key}</td><td>${data[key]}</td></tr>`;
+        html += `
+          <tr class="border-t border-gray-200">
+            <td class="py-2 px-4">${key}</td>
+            <td class="py-2 px-4">${data[key]}</td>
+          </tr>
+        `;
       }
+
       html += '</tbody></table>';
-      $('#tablaResultados').html(html);
+      document.getElementById('tablaResultados').innerHTML = html;
     }
   </script>
 </body>
